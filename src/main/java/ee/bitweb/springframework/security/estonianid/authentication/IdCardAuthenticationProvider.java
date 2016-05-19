@@ -2,13 +2,13 @@ package ee.bitweb.springframework.security.estonianid.authentication;
 
 import ee.bitweb.springframework.security.estonianid.IdCardAuthenticationException;
 import ee.bitweb.springframework.security.estonianid.userdetails.EstonianIdUserDetails;
-import ee.bitweb.springframework.security.estonianid.userdetails.EstonianIdUserDetailsService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import sun.security.x509.X500Name;
@@ -22,8 +22,7 @@ import java.security.Principal;
 public class IdCardAuthenticationProvider implements AuthenticationProvider, InitializingBean {
 
     private IdCardAuthenticationService authenticationService;
-    private EstonianIdUserDetailsService userDetailsService;
-    private boolean createNewUsers = false;
+    private UserDetailsService userDetailsService;
 
     private final Log logger = LogFactory.getLog(getClass());
 
@@ -36,7 +35,7 @@ public class IdCardAuthenticationProvider implements AuthenticationProvider, Ini
 
         logger.info("Trying to authenticate ID card");
 
-        ee.bitweb.springframework.security.estonianid.authentication.IdCardAuthenticationToken token = (ee.bitweb.springframework.security.estonianid.authentication.IdCardAuthenticationToken) authentication;
+        IdCardAuthenticationToken token = (IdCardAuthenticationToken) authentication;
 
         if (ObjectUtils.isEmpty(token.getUserCert())) {
             throw new IdCardAuthenticationException("Bad certificate", token);
@@ -61,28 +60,26 @@ public class IdCardAuthenticationProvider implements AuthenticationProvider, Ini
             }
         }
 
-        EstonianIdUserDetails userDetails = (EstonianIdUserDetails) userDetailsService.loadUserDetails(token);
-        boolean justCreated = false;
+        EstonianIdUserDetails userDetails = retrieveUser(token);
 
-        if (ObjectUtils.isEmpty(userDetails)) {
-            if (createNewUsers) {
-                userDetails = userDetailsService.saveUserDetails(token);
-                justCreated = true;
-            }
-        }
-
-        if (!ObjectUtils.isEmpty(userDetails)) {
-            if (!justCreated) {
-                userDetailsService.updateUserDetails(userDetails, token);
-            }
-            token = new ee.bitweb.springframework.security.estonianid.authentication.IdCardAuthenticationToken(userDetails.getAuthorities(), token.getUserCert());
-            token.setUserIdCode(String.valueOf(token.getUserCert().getSerialNumber()));
-            token.setAuthenticated(true);
-            token.setDetails(null);
-            token.setPrincipal(userDetails);
-        }
+        token = new IdCardAuthenticationToken(userDetails.getAuthorities(), token.getUserCert());
+        token.setUserIdCode(String.valueOf(token.getUserCert().getSerialNumber()));
+        token.setAuthenticated(true);
+        token.setDetails(null);
+        token.setPrincipal(userDetails);
 
         return token;
+    }
+
+    /**
+     * Allows implementation specific ways to retrieve (or if needed, create/update) the user.
+     *
+     * @param token The authentication request
+     * @return user information (never null, exception should be thrown)
+     */
+    protected EstonianIdUserDetails retrieveUser(EstonianIdAuthenticationToken token) throws AuthenticationException{
+
+        return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
     }
 
     public boolean supports(Class<?> authentication) {
@@ -94,11 +91,7 @@ public class IdCardAuthenticationProvider implements AuthenticationProvider, Ini
         this.authenticationService = authenticationService;
     }
 
-    public void setUserDetailsService(EstonianIdUserDetailsService userDetailsService) {
+    public void setUserDetailsService(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
-    }
-
-    public void setCreateNewUsers(boolean createNewUsers) {
-        this.createNewUsers = createNewUsers;
     }
 }
