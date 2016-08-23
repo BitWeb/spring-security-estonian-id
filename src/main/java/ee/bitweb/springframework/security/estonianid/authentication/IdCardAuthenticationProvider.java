@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import sun.security.x509.X500Name;
@@ -22,7 +23,7 @@ import java.security.Principal;
 public class IdCardAuthenticationProvider implements AuthenticationProvider, InitializingBean {
 
     private IdCardAuthenticationService authenticationService;
-    private UserDetailsService userDetailsService;
+    protected UserDetailsService userDetailsService;
 
     private final Log logger = LogFactory.getLog(getClass());
 
@@ -77,9 +78,12 @@ public class IdCardAuthenticationProvider implements AuthenticationProvider, Ini
      * @param token The authentication request
      * @return user information (never null, exception should be thrown)
      */
-    protected EstonianIdUserDetails retrieveUser(EstonianIdAuthenticationToken token) throws AuthenticationException{
-
-        return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
+    protected EstonianIdUserDetails retrieveUser(IdCardAuthenticationToken token) throws AuthenticationException{
+        try {
+            return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
+        } catch (UsernameNotFoundException e) {
+            throw new IdCardAuthenticationException(e.getMessage(), token, e);
+        }
     }
 
     public boolean supports(Class<?> authentication) {

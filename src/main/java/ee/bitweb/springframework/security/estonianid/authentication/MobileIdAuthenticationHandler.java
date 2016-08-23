@@ -3,6 +3,7 @@ package ee.bitweb.springframework.security.estonianid.authentication;
 import ee.bitweb.springframework.security.estonianid.MobileIdAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
@@ -19,11 +20,16 @@ public class MobileIdAuthenticationHandler implements AuthenticationSuccessHandl
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException e) throws IOException, ServletException {
 
-        MobileIdAuthenticationException mIdEx = (MobileIdAuthenticationException) e;
-        MobileIdAuthenticationToken token = mIdEx.getToken();
-        MobileIdAuthenticationSession authSession = token.getAuthSession();
+        if (e.getCause() instanceof UsernameNotFoundException) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            respond(response, HttpServletResponse.SC_UNAUTHORIZED, "USER_NOT_FOUND", null);
+        } else {
+            MobileIdAuthenticationException mIdEx = (MobileIdAuthenticationException) e;
+            MobileIdAuthenticationToken token = mIdEx.getToken();
+            MobileIdAuthenticationSession authSession = token.getAuthSession();
 
-        respond(response, authSession.getErrorCode(), authSession.getStatus(), authSession.getChallengeId());
+            respond(response, authSession.getErrorCode(), authSession.getStatus(), authSession.getChallengeId());
+        }
     }
 
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,

@@ -264,7 +264,7 @@ public class MobileIdAuthenticationService implements InitializingBean {
     }
 
     protected static int getSoapErrorCode(SOAPFault fault) {
-        Integer faultCode = Integer.parseInt(fault.getFaultCode());
+        Integer faultCode = Integer.parseInt(fault.getFaultString());
         if (ERROR_CODES.contains(faultCode)) {
             return faultCode;
         }

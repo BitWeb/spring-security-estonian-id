@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -17,7 +18,7 @@ import org.springframework.util.ObjectUtils;
 public class MobileIdAuthenticationProvider implements AuthenticationProvider, InitializingBean {
 
     private MobileIdAuthenticationService authenticationService;
-    private UserDetailsService userDetailsService;
+    protected UserDetailsService userDetailsService;
 
     public void afterPropertiesSet() {
         Assert.notNull(authenticationService, "authenticationService must be set");
@@ -80,8 +81,11 @@ public class MobileIdAuthenticationProvider implements AuthenticationProvider, I
      * @return user information (never null, exception should be thrown)
      */
     protected EstonianIdUserDetails retrieveUser(MobileIdAuthenticationToken token) throws AuthenticationException {
-
-        return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
+        try {
+            return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
+        } catch (UsernameNotFoundException e) {
+            throw new MobileIdAuthenticationException(e.getMessage(), token, e);
+        }
     }
 
     public boolean supports(Class<?> authentication) {
