@@ -26,6 +26,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -136,7 +138,12 @@ public class MobileIdAuthenticationFilter extends GenericFilterBean implements A
     }
 
     private String obtainPhoneNo(HttpServletRequest request) {
-        return request.getParameter("phoneNo");
+        try {
+            return URLDecoder.decode(request.getParameter("phoneNo"), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            logger.error(e);
+            return null;
+        }
     }
 
     public String getFilterProcessesUrl() {
