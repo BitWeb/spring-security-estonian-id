@@ -16,13 +16,11 @@ import java.security.cert.X509Certificate;
 /**
  * Created by taavisikk on 5/11/16.
  */
-public class IdCardAuthenticationService implements InitializingBean {
+public class IdCardAuthenticationService extends EstonianIdAuthenticationService implements InitializingBean {
 
     public static final String ST_GOOD = "GOOD";
     public static final String ST_BAD_CERTIFICATE = "BAD_CERTIFICATE";
     public static final String ST_AUTHENTICATED = "AUTHENTICATED";
-
-    private final Log logger = LogFactory.getLog(getClass());
 
     private String digiDocServiceUrl;
 
@@ -33,13 +31,20 @@ public class IdCardAuthenticationService implements InitializingBean {
     }
 
     public String checkCertificate(X509Certificate certificate) {
+        if (trustAllCertificates) {
+            doTrustAllCertificates();
+        }
         try {
             SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
             SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
             SOAPMessage requestMessage = getRequestMessage(certificate);
-
             SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+
+            if (trustAllCertificates) {
+                resetHttpsUrlConnection();
+            }
+
             SOAPBody responseBody = response.getSOAPBody();
             if (responseBody.hasFault()) {
                 logger.error("CheckCertificate fault: " + responseBody.getFault().getFaultString());
@@ -64,8 +69,14 @@ public class IdCardAuthenticationService implements InitializingBean {
             }
 
         } catch (SOAPException e) {
+            if (trustAllCertificates) {
+                resetHttpsUrlConnection();
+            }
             logger.error(e);
         } catch (CertificateEncodingException e) {
+            if (trustAllCertificates) {
+                resetHttpsUrlConnection();
+            }
             logger.error(e);
         }
         return null;

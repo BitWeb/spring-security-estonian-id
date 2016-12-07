@@ -19,7 +19,7 @@ import java.util.Random;
 /**
  * Created by taavisikk on 5/11/16.
  */
-public class MobileIdAuthenticationService implements InitializingBean {
+public class MobileIdAuthenticationService extends EstonianIdAuthenticationService implements InitializingBean {
 
     public static final String ST_OK = "OK";
     public static final String ST_OUTSTANDING_TRANSACTION = "OUTSTANDING_TRANSACTION";
@@ -32,8 +32,6 @@ public class MobileIdAuthenticationService implements InitializingBean {
     public static final String ST_SENDING_ERROR = "SENDING_ERROR";
     public static final String ST_SIM_ERROR = "SIM_ERROR";
     public static final String ST_INTERNAL_ERROR = "INTERNAL_ERROR";
-
-    private final Log logger = LogFactory.getLog(getClass());
 
     private String appServiceName;
     private String digiDocServiceUrl;
@@ -64,12 +62,20 @@ public class MobileIdAuthenticationService implements InitializingBean {
         }
         String challenge = generateChallenge();
 
+        if (trustAllCertificates) {
+            doTrustAllCertificates();
+        }
+
         try {
             SOAPConnection soapConnection = getSoapConnection();
 
             SOAPMessage requestMessage = getAuthenticationMessage(phoneNo, languageCode, challenge);
-
             SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+
+            if (trustAllCertificates) {
+                resetHttpsUrlConnection();
+            }
+
             SOAPBody responseBody = response.getSOAPBody();
 
             if (responseBody.hasFault()) {
@@ -118,8 +124,12 @@ public class MobileIdAuthenticationService implements InitializingBean {
                 }
             }
         } catch (SOAPException e) {
-            logger.warn("Unknown SOAPException: ", e);
+            if (trustAllCertificates) {
+                resetHttpsUrlConnection();
+            }
             authenticationSession.setErrorCode(-1);
+
+            logger.warn("Unknown SOAPException: ", e);
         }
 
         return authenticationSession;
