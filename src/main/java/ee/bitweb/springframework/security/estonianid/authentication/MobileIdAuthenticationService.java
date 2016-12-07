@@ -151,12 +151,21 @@ public class MobileIdAuthenticationService extends EstonianIdAuthenticationServi
             if ((now.getTime() - timePolled.getTime()) / 1000 < secondsToWait) {
                 logger.warn("Trying to poll too soon");
             }
+
+            if (trustAllCertificates) {
+                doTrustAllCertificates();
+            }
+
             try {
                 SOAPConnection soapConnection = getSoapConnection();
 
                 SOAPMessage requestMessage = getPollMessage(authenticationSession.getSessionCode());
-
                 SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+
+                if (trustAllCertificates) {
+                    resetHttpsUrlConnection();
+                }
+
                 authenticationSession.setTimePolled(now);
 
                 SOAPBody responseBody = response.getSOAPBody();
@@ -181,6 +190,9 @@ public class MobileIdAuthenticationService extends EstonianIdAuthenticationServi
                     }
                 }
             } catch (SOAPException e) {
+                if (trustAllCertificates) {
+                    resetHttpsUrlConnection();
+                }
                 logger.warn("Unknown SOAPException: ", e);
                 authenticationSession.setErrorCode(-1);
             }
