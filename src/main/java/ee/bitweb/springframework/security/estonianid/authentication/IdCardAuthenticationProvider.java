@@ -78,7 +78,7 @@ public class IdCardAuthenticationProvider implements AuthenticationProvider, Ini
      * @param token The authentication request
      * @return user information (never null, exception should be thrown)
      */
-    protected EstonianIdUserDetails retrieveUser(IdCardAuthenticationToken token) throws AuthenticationException{
+    protected EstonianIdUserDetails retrieveUser(IdCardAuthenticationToken token) throws AuthenticationException {
         try {
             return (EstonianIdUserDetails) userDetailsService.loadUserByUsername(token.getUserIdCode());
         } catch (UsernameNotFoundException e) {
