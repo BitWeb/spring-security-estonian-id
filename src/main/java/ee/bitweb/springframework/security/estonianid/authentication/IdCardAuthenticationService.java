@@ -40,6 +40,7 @@ public class IdCardAuthenticationService extends EstonianIdAuthenticationService
 
             SOAPMessage requestMessage = getRequestMessage(certificate);
             SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+            logResponse(response);
 
             if (trustAllCertificates) {
                 resetHttpsUrlConnection();

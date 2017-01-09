@@ -6,7 +6,7 @@
 
     <groupId>ee.bitweb</groupId>
     <artifactId>spring-security-estonian-id</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>Spring Security Estonian ID extension</name>

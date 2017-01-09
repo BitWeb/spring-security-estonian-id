@@ -4,6 +4,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import javax.net.ssl.*;
+import javax.xml.soap.SOAPException;
+import javax.xml.soap.SOAPMessage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -50,6 +54,14 @@ public abstract class EstonianIdAuthenticationService {
     protected static void resetHttpsUrlConnection() {
         HttpsURLConnection.setDefaultSSLSocketFactory(defaultSocketFactory);
         HttpsURLConnection.setDefaultHostnameVerifier(defaultHostnameVerifier);
+    }
+
+    protected void logResponse(SOAPMessage response) throws SOAPException {
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            response.writeTo(bos);
+            logger.debug("DigiDocService response: " + System.lineSeparator() + bos.toString());
+        } catch (IOException e) { }
     }
 
     public boolean getTrustAllCertificates() {

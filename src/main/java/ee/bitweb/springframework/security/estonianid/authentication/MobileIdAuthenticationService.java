@@ -1,7 +1,5 @@
 package ee.bitweb.springframework.security.estonianid.authentication;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
@@ -71,6 +69,7 @@ public class MobileIdAuthenticationService extends EstonianIdAuthenticationServi
 
             SOAPMessage requestMessage = getAuthenticationMessage(phoneNo, languageCode, challenge);
             SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+            logResponse(response);
 
             if (trustAllCertificates) {
                 resetHttpsUrlConnection();
@@ -161,6 +160,7 @@ public class MobileIdAuthenticationService extends EstonianIdAuthenticationServi
 
                 SOAPMessage requestMessage = getPollMessage(authenticationSession.getSessionCode());
                 SOAPMessage response = soapConnection.call(requestMessage, digiDocServiceUrl);
+                logResponse(response);
 
                 if (trustAllCertificates) {
                     resetHttpsUrlConnection();
