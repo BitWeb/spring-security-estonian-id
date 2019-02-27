@@ -6,7 +6,7 @@
 
     <groupId>ee.bitweb</groupId>
     <artifactId>spring-security-estonian-id</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>Spring Security Estonian ID extension</name>
@@ -172,6 +172,11 @@
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
             <version>1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>ee.sk.smartid</groupId>
+            <artifactId>smart-id-java-client</artifactId>
+            <version>1.0</version>
         </dependency>
     </dependencies>
     <properties>

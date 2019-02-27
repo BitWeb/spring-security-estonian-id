@@ -1,9 +1,9 @@
 package ee.bitweb.springframework.security.estonianid.filter;
 
-import ee.bitweb.springframework.security.estonianid.MobileIdAuthenticationException;
-import ee.bitweb.springframework.security.estonianid.MobileIdAuthenticationOutstandingException;
-import ee.bitweb.springframework.security.estonianid.authentication.MobileIdAuthenticationHandler;
-import ee.bitweb.springframework.security.estonianid.authentication.MobileIdAuthenticationToken;
+import ee.bitweb.springframework.security.estonianid.*;
+import ee.bitweb.springframework.security.estonianid.authentication.SmartIdAuthenticationHandler;
+import ee.bitweb.springframework.security.estonianid.authentication.SmartIdAuthenticationSession;
+import ee.bitweb.springframework.security.estonianid.authentication.SmartIdAuthenticationToken;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,95 +32,91 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+
 /**
- * Created by taavisikk on 5/10/16.
+ * Created by taavisikk on 2/26/19.
  */
-public class MobileIdAuthenticationFilter extends GenericFilterBean implements ApplicationEventPublisherAware {
+public class SmartIdAuthenticationFilter extends GenericFilterBean implements ApplicationEventPublisherAware {
 
-    public static final String LANG_EST = "EST";
-    public static final String LANG_ENG = "ENG";
-    public static final String LANG_RUS = "RUS";
-    public static final String LANG_LIT = "LIT";
-
-    private String filterProcessesUrl = "/j_spring_mid_security_check";
+    private String filterProcessesUrl = "/j_spring_sid_security_check";
     private AuthenticationManager authenticationManager;
     private ApplicationEventPublisher applicationEventPublisher;
-    private AuthenticationSuccessHandler authenticationSuccessHandler = new MobileIdAuthenticationHandler();
-    private AuthenticationFailureHandler authenticationFailureHandler = new MobileIdAuthenticationHandler();
+    private AuthenticationSuccessHandler authenticationSuccessHandler = new SmartIdAuthenticationHandler();
+    private AuthenticationFailureHandler authenticationFailureHandler = new SmartIdAuthenticationHandler();
 
     private LocaleResolver localeResolver = new CookieLocaleResolver();
-    private String defaultLanguageCode = "EST";
-    private Map<String, String> localeToLangMap;
+    private SmartIdAuthenticationSession.CountryCode defaultCountryCode = SmartIdAuthenticationSession.CountryCode.EE;
+    private Map<String, SmartIdAuthenticationSession.CountryCode> localeToCountryMap;
 
     @Override
     public void afterPropertiesSet() throws ServletException {
         super.afterPropertiesSet();
         Assert.notNull(authenticationManager, "authenticationManager must be specified");
         Assert.notNull(applicationEventPublisher, "applicationEventPublisher must be specified");
-        if (ObjectUtils.isEmpty(localeToLangMap)) {
-            localeToLangMap = new HashMap<String, String>();
-            localeToLangMap.put("et_EE", LANG_EST);
-            localeToLangMap.put("ru_RU", LANG_RUS);
-            localeToLangMap.put("ru_MD", LANG_RUS);
-            localeToLangMap.put("ru_UA", LANG_RUS);
-            localeToLangMap.put("lt_LT", LANG_LIT);
+
+        if (ObjectUtils.isEmpty(localeToCountryMap)) {
+            localeToCountryMap = new HashMap<String, SmartIdAuthenticationSession.CountryCode>();
+            localeToCountryMap.put("et_EE", SmartIdAuthenticationSession.CountryCode.EE);
+            localeToCountryMap.put("lt_LT", SmartIdAuthenticationSession.CountryCode.LT);
+            localeToCountryMap.put("lv_LV", SmartIdAuthenticationSession.CountryCode.LV);
         }
     }
 
+    @Override
     public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest request = (HttpServletRequest) req;
         HttpServletResponse response = (HttpServletResponse) resp;
 
-        if(!request.getRequestURI().contains(filterProcessesUrl)) {
+        if (!request.getRequestURI().contains(filterProcessesUrl)) {
             chain.doFilter(request, response);
             return;
         }
 
-        logger.debug("Request requires MobileId authentication");
+        logger.debug("Request requires Smart-ID authentication");
 
         Authentication token = SecurityContextHolder.getContext().getAuthentication();
 
         try {
-            token = attemptAuthentication(request, (MobileIdAuthenticationToken) token);
+            token = attemptAuthentication(request, (SmartIdAuthenticationToken) token);
 
-            if(ObjectUtils.isEmpty(token)) {
+            if (ObjectUtils.isEmpty(token)) {
                 return;
             }
 
             successfulAuthentication(request, response, token);
-        } catch(MobileIdAuthenticationOutstandingException e) {
+        } catch (SmartIdAuthenticationPendingException e) {
             insufficientAuthentication(request, response, e);
-        } catch(AuthenticationException e) {
+        } catch (AuthenticationException e) {
             unsuccessfulAuthentication(request, response, e);
         }
     }
 
-    private Authentication attemptAuthentication(HttpServletRequest request, MobileIdAuthenticationToken token) throws AuthenticationException {
-        logger.debug("Attempting MobileId authentication");
+    private Authentication attemptAuthentication(HttpServletRequest request, SmartIdAuthenticationToken token)
+            throws AuthenticationException {
+        logger.debug("Attempting Smart-ID authentication");
 
-        String phoneNo = obtainPhoneNo(request);
-        if (phoneNo != null) {
-            phoneNo = phoneNo.trim();
+        String userIdCode = obtainUserIdCode(request);
+        if (userIdCode != null) {
+            userIdCode = userIdCode.trim();
         }
 
-        if(token == null) {
-            token = new MobileIdAuthenticationToken(phoneNo);
+        SmartIdAuthenticationSession.CountryCode countryCode = obtainCountryCode(request);
+        if (countryCode == null) {
+            countryCode = defaultCountryCode;
+
+            Locale locale = localeResolver.resolveLocale(request);
+            if (!ObjectUtils.isEmpty(locale) && localeToCountryMap.containsKey(locale.toString())) {
+                countryCode = localeToCountryMap.get(locale.toString());
+            }
+        }
+
+        if (token == null) {
+            token = new SmartIdAuthenticationToken(userIdCode, countryCode);
         } else {
-            if(!token.getUserPhoneNo().equals(phoneNo)) {
-                token = new MobileIdAuthenticationToken(phoneNo);
+            if (!token.getUserIdCode().equals(userIdCode)) {
+                token = new SmartIdAuthenticationToken(userIdCode, countryCode);
             }
         }
-
-        Locale locale = localeResolver.resolveLocale(request);
-        String languageCode = defaultLanguageCode;
-        if (!ObjectUtils.isEmpty(locale)) {
-            if (localeToLangMap.containsKey(locale.toString())) {
-                languageCode = localeToLangMap.get(locale.toString());
-            } else {
-                languageCode = LANG_ENG;
-            }
-        }
-        token.setUserLanguageCode(languageCode);
 
         return authenticationManager.authenticate(token);
     }
@@ -134,7 +130,7 @@ public class MobileIdAuthenticationFilter extends GenericFilterBean implements A
     }
 
     private void insufficientAuthentication(HttpServletRequest request, HttpServletResponse response,
-                                            MobileIdAuthenticationException e) throws IOException, ServletException {
+                                            SmartIdAuthenticationException e) throws IOException, ServletException {
 
         SecurityContextHolder.getContext().setAuthentication(e.getToken());
         authenticationFailureHandler.onAuthenticationFailure(request, response, e);
@@ -147,13 +143,27 @@ public class MobileIdAuthenticationFilter extends GenericFilterBean implements A
         authenticationFailureHandler.onAuthenticationFailure(request, response, e);
     }
 
-    private String obtainPhoneNo(HttpServletRequest request) {
-        try {
-            return URLDecoder.decode(request.getParameter("phoneNo"), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            logger.error(e);
-            return null;
+    private String obtainUserIdCode(HttpServletRequest request) {
+        String userIdCode = request.getParameter("userIdCode");
+
+        if (userIdCode != null) {
+            try {
+                return URLDecoder.decode(userIdCode, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                logger.error(e);
+                return null;
+            }
         }
+        return null;
+    }
+
+    private SmartIdAuthenticationSession.CountryCode obtainCountryCode(HttpServletRequest request) {
+        String countryCode = request.getParameter("countryCode");
+
+        if (countryCode != null) {
+            return SmartIdAuthenticationSession.CountryCode.valueOf(countryCode);
+        }
+        return null;
     }
 
     public String getFilterProcessesUrl() {
@@ -204,19 +214,19 @@ public class MobileIdAuthenticationFilter extends GenericFilterBean implements A
         this.localeResolver = localeResolver;
     }
 
-    public String getDefaultLanguageCode() {
-        return defaultLanguageCode;
+    public SmartIdAuthenticationSession.CountryCode getDefaultCountryCode() {
+        return defaultCountryCode;
     }
 
-    public void setDefaultLanguageCode(String defaultLanguageCode) {
-        this.defaultLanguageCode = defaultLanguageCode;
+    public void setDefaultCountryCode(SmartIdAuthenticationSession.CountryCode defaultCountryCode) {
+        this.defaultCountryCode = defaultCountryCode;
     }
 
-    public Map<String, String> getLocaleToLangMap() {
-        return localeToLangMap;
+    public Map<String, SmartIdAuthenticationSession.CountryCode> getLocaleToCountryMap() {
+        return localeToCountryMap;
     }
 
-    public void setLocaleToLangMap(Map<String, String> localeToLangMap) {
-        this.localeToLangMap = localeToLangMap;
+    public void setLocaleToCountryMap(Map<String, SmartIdAuthenticationSession.CountryCode> localeToCountryMap) {
+        this.localeToCountryMap = localeToCountryMap;
     }
 }
